@@ -28,6 +28,7 @@
     "jsdom": "^26.1.0"
   },
   "devDependencies": {
+    "@types/pdf-parse": "^1.1.4",
     "@types/node": "^22.15.30",
     "@types/pdfkit": "^0.13.8",
     "@types/react": "^19.1.10",
