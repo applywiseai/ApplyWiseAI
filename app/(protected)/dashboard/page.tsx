@@ -15,51 +15,53 @@ export default async function Dashboard() {
   const user = await requireUser();
   const db = createAdminClient();
 
-  const profiles =
-    user.role === "ADMIN"
-      ? await db
+  const isAdmin = user.role === "ADMIN";
+
+  // Run all dashboard queries in parallel.
+  const [profiles, apps, resumes] = await Promise.all([
+    isAdmin
+      ? db
           .from("client_profiles")
           .select("id", { count: "exact", head: true })
           .eq("is_deleted", false)
-      : await db
+      : db
           .from("user_profile_assignments")
           .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id);
+          .eq("user_id", user.id),
 
-  const apps =
-    user.role === "ADMIN"
-      ? await db
+    isAdmin
+      ? db
           .from("applications")
           .select("id,status,job_title,company,created_at", {
             count: "exact",
           })
           .order("created_at", { ascending: false })
           .limit(6)
-      : await db
+      : db
           .from("applications")
           .select("id,status,job_title,company,created_at", {
             count: "exact",
           })
           .eq("created_by", user.id)
           .order("created_at", { ascending: false })
-          .limit(6);
+          .limit(6),
 
-  const resumes =
-    user.role === "ADMIN"
-      ? await db
+    isAdmin
+      ? db
           .from("generated_resumes")
           .select("id", { count: "exact", head: true })
-      : await db
+      : db
           .from("generated_resumes")
           .select("id", { count: "exact", head: true })
-          .eq("created_by", user.id);
+          .eq("created_by", user.id),
+  ]);
 
   const stats = [
     {
-      label: user.role === "ADMIN" ? "Client Profiles" : "Assigned Profiles",
+      label: isAdmin ? "Client Profiles" : "Assigned Profiles",
       value: profiles.count || 0,
       icon: UserRound,
-      href: user.role === "ADMIN" ? "/admin/profiles" : "/profiles",
+      href: isAdmin ? "/admin/profiles" : "/profiles",
     },
     {
       label: "Applications",
@@ -71,8 +73,7 @@ export default async function Dashboard() {
       label: "Resumes Generated",
       value: resumes.count || 0,
       icon: FileText,
-      href:
-        user.role === "ADMIN" ? "/admin/resumes" : "/applications",
+      href: isAdmin ? "/admin/resumes" : "/applications",
     },
   ];
 
@@ -82,7 +83,7 @@ export default async function Dashboard() {
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="mb-2 text-sm font-medium text-slate-500">
-            {user.role === "ADMIN" ? "Admin workspace" : "Your workspace"}
+            {isAdmin ? "Admin workspace" : "Your workspace"}
           </div>
 
           <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
@@ -96,7 +97,7 @@ export default async function Dashboard() {
 
         <Link
           href="/applications/new"
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.98]"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-md active:translate-y-0 active:scale-[0.98]"
         >
           <Plus size={17} />
           New Application
@@ -110,7 +111,7 @@ export default async function Dashboard() {
 
           return (
             <Link key={stat.label} href={stat.href}>
-              <Card className="group relative overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md">
+              <Card className="group relative overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:shadow-lg active:scale-[0.99]">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-500">
@@ -122,14 +123,17 @@ export default async function Dashboard() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-slate-100 p-3 text-slate-700 transition group-hover:bg-slate-950 group-hover:text-white">
+                  <div className="rounded-xl bg-slate-100 p-3 text-slate-700 transition-all duration-200 group-hover:scale-105 group-hover:bg-slate-950 group-hover:text-white">
                     <Icon size={19} />
                   </div>
                 </div>
 
-                <div className="mt-5 flex items-center gap-1 text-xs font-semibold text-slate-500 group-hover:text-slate-900">
+                <div className="mt-5 flex items-center gap-1 text-xs font-semibold text-slate-500 transition-colors group-hover:text-slate-900">
                   View details
-                  <ArrowUpRight size={13} />
+                  <ArrowUpRight
+                    size={13}
+                    className="transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  />
                 </div>
               </Card>
             </Link>
@@ -152,9 +156,13 @@ export default async function Dashboard() {
 
           <Link
             href="/applications"
-            className="text-xs font-semibold text-slate-600 hover:text-slate-950"
+            className="group inline-flex items-center gap-1 text-xs font-semibold text-slate-600 transition-colors hover:text-slate-950"
           >
-            View all →
+            View all
+            <ArrowUpRight
+              size={13}
+              className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+            />
           </Link>
         </div>
 
@@ -166,7 +174,7 @@ export default async function Dashboard() {
                 <th className="px-5 py-3.5">Company</th>
                 <th className="px-5 py-3.5">Status</th>
                 <th className="px-5 py-3.5">Created</th>
-                <th className="px-5 py-3.5"></th>
+                <th className="px-5 py-3.5" />
               </tr>
             </thead>
 
@@ -174,12 +182,12 @@ export default async function Dashboard() {
               {(apps.data || []).map((application: any) => (
                 <tr
                   key={application.id}
-                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70"
+                  className="group border-b border-slate-100 last:border-0 transition-colors duration-150 hover:bg-slate-50/70"
                 >
                   <td className="px-5 py-4">
                     <Link
                       href={`/applications/${application.id}`}
-                      className="font-semibold text-slate-900 hover:underline"
+                      className="font-semibold text-slate-900 transition-colors hover:text-slate-600 hover:underline"
                     >
                       {application.job_title || "Untitled position"}
                     </Link>
@@ -195,16 +203,15 @@ export default async function Dashboard() {
 
                   <td className="px-5 py-4 text-slate-500">
                     {application.created_at
-                      ? new Date(
-                          application.created_at
-                        ).toLocaleDateString()
+                      ? new Date(application.created_at).toLocaleDateString()
                       : "—"}
                   </td>
 
                   <td className="px-5 py-4 text-right">
                     <Link
                       href={`/applications/${application.id}`}
-                      className="inline-flex rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900"
+                      aria-label="Open application"
+                      className="inline-flex rounded-lg p-2 text-slate-400 opacity-70 transition-all duration-150 hover:bg-white hover:text-slate-900 hover:shadow-sm group-hover:opacity-100"
                     >
                       <ArrowUpRight size={16} />
                     </Link>
@@ -214,10 +221,7 @@ export default async function Dashboard() {
 
               {!apps.data?.length && (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-5 py-14 text-center"
-                  >
+                  <td colSpan={5} className="px-5 py-14 text-center">
                     <div className="mx-auto flex max-w-sm flex-col items-center">
                       <div className="rounded-2xl bg-slate-100 p-4">
                         <BriefcaseBusiness
@@ -236,7 +240,7 @@ export default async function Dashboard() {
 
                       <Link
                         href="/applications/new"
-                        className="mt-4 text-xs font-bold text-slate-900 hover:underline"
+                        className="mt-4 text-xs font-bold text-slate-900 transition-colors hover:text-slate-500 hover:underline"
                       >
                         Create your first application →
                       </Link>
