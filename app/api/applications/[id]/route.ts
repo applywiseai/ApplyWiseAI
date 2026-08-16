@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+import { apiUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){try{const u=await apiUser();if(!u||u.role!=="ADMIN")return NextResponse.json({error:"Forbidden"},{status:403});const {id}=await params;const {status}=await req.json();const allowed=["Draft","Job Extracted","Resume Ready","Applied","Interview","Rejected","Offer","Withdrawn"];if(!allowed.includes(status))return NextResponse.json({error:"Invalid status"},{status:400});const db=createAdminClient();const {error}=await db.from("applications").update({status}).eq("id",id);if(error)throw error;return NextResponse.json({ok:true});}catch(e:any){return NextResponse.json({error:e.message},{status:400});}}
