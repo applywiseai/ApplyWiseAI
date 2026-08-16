@@ -10,7 +10,7 @@ export default async function ProtectedLayout({
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <Sidebar user={user} />
+      <Sidebar role={user.role} />
 
       <main className="min-h-screen lg:pl-64">
         <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
