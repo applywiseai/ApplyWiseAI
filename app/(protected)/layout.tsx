@@ -1,4 +1,4 @@
-\import { requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import Sidebar from "@/components/sidebar";
 
 export default async function ProtectedLayout({
