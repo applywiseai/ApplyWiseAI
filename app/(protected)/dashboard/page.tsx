@@ -1,370 +1,253 @@
+import Link from "next/link";
+import {
+  ArrowUpRight,
+  BriefcaseBusiness,
+  FileText,
+  UserRound,
+  Plus,
+} from "lucide-react";
+
 import { requireUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import Link from "next/link";
-import { Card, Badge, Button } from "@/components/ui";
+import { Card, Badge } from "@/components/ui";
 
 export default async function Dashboard() {
   const user = await requireUser();
   const db = createAdminClient();
 
-  const isAdmin = user.role === "ADMIN";
+  const profiles =
+    user.role === "ADMIN"
+      ? await db
+          .from("client_profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("is_deleted", false)
+      : await db
+          .from("user_profile_assignments")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id);
 
-  const profilesQuery = isAdmin
-    ? db
-        .from("client_profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("is_deleted", false)
-    : db
-        .from("user_profile_assignments")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id);
+  const apps =
+    user.role === "ADMIN"
+      ? await db
+          .from("applications")
+          .select("id,status,job_title,company,created_at", {
+            count: "exact",
+          })
+          .order("created_at", { ascending: false })
+          .limit(6)
+      : await db
+          .from("applications")
+          .select("id,status,job_title,company,created_at", {
+            count: "exact",
+          })
+          .eq("created_by", user.id)
+          .order("created_at", { ascending: false })
+          .limit(6);
 
-  const applicationsQuery = isAdmin
-    ? db
-        .from("applications")
-        .select(
-          "id,status,job_title,company,location,created_at,profile_id",
-          { count: "exact" }
-        )
-        .order("created_at", { ascending: false })
-        .limit(6)
-    : db
-        .from("applications")
-        .select(
-          "id,status,job_title,company,location,created_at,profile_id",
-          { count: "exact" }
-        )
-        .eq("created_by", user.id)
-        .order("created_at", { ascending: false })
-        .limit(6);
+  const resumes =
+    user.role === "ADMIN"
+      ? await db
+          .from("generated_resumes")
+          .select("id", { count: "exact", head: true })
+      : await db
+          .from("generated_resumes")
+          .select("id", { count: "exact", head: true })
+          .eq("created_by", user.id);
 
-  const resumesQuery = isAdmin
-    ? db
-        .from("generated_resumes")
-        .select("id", { count: "exact", head: true })
-    : db
-        .from("generated_resumes")
-        .select("id", { count: "exact", head: true })
-        .eq("created_by", user.id);
-
-  const [
-    { count: profileCount },
-    { data: applications },
-    { count: resumeCount },
-  ] = await Promise.all([
-    profilesQuery,
-    applicationsQuery,
-    resumesQuery,
-  ]);
-
-  const totalApplications = applications?.length || 0;
-
-  const statusCounts = {
-    active:
-      applications?.filter(
-        (a: any) =>
-          !["Rejected", "Withdrawn"].includes(a.status)
-      ).length || 0,
-
-    interviews:
-      applications?.filter(
-        (a: any) => a.status === "Interview"
-      ).length || 0,
-
-    offers:
-      applications?.filter(
-        (a: any) => a.status === "Offer"
-      ).length || 0,
-  };
+  const stats = [
+    {
+      label: user.role === "ADMIN" ? "Client Profiles" : "Assigned Profiles",
+      value: profiles.count || 0,
+      icon: UserRound,
+      href: user.role === "ADMIN" ? "/admin/profiles" : "/profiles",
+    },
+    {
+      label: "Applications",
+      value: apps.count || 0,
+      icon: BriefcaseBusiness,
+      href: "/applications",
+    },
+    {
+      label: "Resumes Generated",
+      value: resumes.count || 0,
+      icon: FileText,
+      href:
+        user.role === "ADMIN" ? "/admin/resumes" : "/applications",
+    },
+  ];
 
   return (
-    <div className="space-y-8 pb-10">
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl bg-slate-950 p-7 md:p-9 text-white">
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute -bottom-32 left-1/3 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
-
-        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300 mb-4">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              ApplyWise AI
-            </div>
-
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-              Welcome back, {user.full_name}
-            </h1>
-
-            <p className="mt-2 max-w-xl text-sm md:text-base text-gray-400">
-              Manage applications, client profiles and AI-powered
-              tailored resumes from one place.
-            </p>
+    <div className="space-y-8 pt-14 lg:pt-0">
+      {/* Header */}
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="mb-2 text-sm font-medium text-slate-500">
+            {user.role === "ADMIN" ? "Admin workspace" : "Your workspace"}
           </div>
 
-          <Link href="/applications/new">
-            <Button className="bg-white text-slate-950 hover:bg-gray-100 px-6">
-              + New Application
-            </Button>
-          </Link>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+            Welcome, {user.full_name || "there"}
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Manage job applications and create targeted resumes.
+          </p>
         </div>
-      </section>
+
+        <Link
+          href="/applications/new"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.98]"
+        >
+          <Plus size={17} />
+          New Application
+        </Link>
+      </div>
 
       {/* Stats */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          title={isAdmin ? "Client Profiles" : "Assigned Profiles"}
-          value={profileCount || 0}
-          icon="◎"
-          description="Available profiles"
-        />
+      <div className="grid gap-4 md:grid-cols-3">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
 
-        <StatCard
-          title="Applications"
-          value={applications?.length || 0}
-          icon="↗"
-          description="Recent applications"
-        />
+          return (
+            <Link key={stat.label} href={stat.href}>
+              <Card className="group relative overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      {stat.label}
+                    </p>
 
-        <StatCard
-          title="Resumes Generated"
-          value={resumeCount || 0}
-          icon="▤"
-          description="AI tailored resumes"
-        />
+                    <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+                      {stat.value}
+                    </p>
+                  </div>
 
-        <StatCard
-          title="Interviews"
-          value={statusCounts.interviews}
-          icon="✓"
-          description="Interview stage"
-        />
-      </section>
+                  <div className="rounded-xl bg-slate-100 p-3 text-slate-700 transition group-hover:bg-slate-950 group-hover:text-white">
+                    <Icon size={19} />
+                  </div>
+                </div>
 
-      {/* Quick actions */}
-      <section className="grid md:grid-cols-3 gap-4">
-        <QuickAction
-          href="/applications/new"
-          title="Create Application"
-          description="Paste a public job URL and generate a tailored resume."
-          icon="↗"
-        />
+                <div className="mt-5 flex items-center gap-1 text-xs font-semibold text-slate-500 group-hover:text-slate-900">
+                  View details
+                  <ArrowUpRight size={13} />
+                </div>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
 
-        <QuickAction
-          href="/applications"
-          title="View Applications"
-          description="Track your job applications and their current status."
-          icon="▦"
-        />
-
-        <QuickAction
-          href="/profiles"
-          title={isAdmin ? "Manage Profiles" : "My Profiles"}
-          description="View client information and master resumes."
-          icon="○"
-        />
-      </section>
-
-      {/* Recent applications */}
-      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b px-6 py-5">
+      {/* Applications */}
+      <Card className="overflow-hidden p-0">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6">
           <div>
-            <h2 className="font-semibold text-lg">
+            <h2 className="font-bold text-slate-950">
               Recent Applications
             </h2>
 
-            <p className="text-sm text-gray-500 mt-1">
-              Your latest application activity
+            <p className="mt-1 text-xs text-slate-500">
+              Your latest job application activity.
             </p>
           </div>
 
           <Link
             href="/applications"
-            className="text-sm font-medium text-slate-900 hover:underline"
+            className="text-xs font-semibold text-slate-600 hover:text-slate-950"
           >
             View all →
           </Link>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[650px] text-sm">
             <thead>
-              <tr className="border-b bg-gray-50/70 text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="px-6 py-4">Position</th>
-                <th className="px-6 py-4">Company</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Created</th>
+              <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs font-semibold text-slate-500">
+                <th className="px-5 py-3.5">Position</th>
+                <th className="px-5 py-3.5">Company</th>
+                <th className="px-5 py-3.5">Status</th>
+                <th className="px-5 py-3.5">Created</th>
+                <th className="px-5 py-3.5"></th>
               </tr>
             </thead>
 
             <tbody>
-              {(applications || []).map((application: any) => (
+              {(apps.data || []).map((application: any) => (
                 <tr
                   key={application.id}
-                  className="border-b last:border-0 hover:bg-gray-50 transition"
+                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70"
                 >
-                  <td className="px-6 py-4">
+                  <td className="px-5 py-4">
                     <Link
                       href={`/applications/${application.id}`}
                       className="font-semibold text-slate-900 hover:underline"
                     >
-                      {application.job_title || "Untitled Position"}
+                      {application.job_title || "Untitled position"}
                     </Link>
-
-                    {application.location && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        {application.location}
-                      </div>
-                    )}
                   </td>
 
-                  <td className="px-6 py-4 text-gray-600">
+                  <td className="px-5 py-4 text-slate-600">
                     {application.company || "—"}
                   </td>
 
-                  <td className="px-6 py-4">
-                    <StatusBadge status={application.status} />
+                  <td className="px-5 py-4">
+                    <Badge>{application.status || "Draft"}</Badge>
                   </td>
 
-                  <td className="px-6 py-4 text-gray-500">
-                    {formatDate(application.created_at)}
+                  <td className="px-5 py-4 text-slate-500">
+                    {application.created_at
+                      ? new Date(
+                          application.created_at
+                        ).toLocaleDateString()
+                      : "—"}
+                  </td>
+
+                  <td className="px-5 py-4 text-right">
+                    <Link
+                      href={`/applications/${application.id}`}
+                      className="inline-flex rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      <ArrowUpRight size={16} />
+                    </Link>
                   </td>
                 </tr>
               ))}
 
-              {!applications?.length && (
+              {!apps.data?.length && (
                 <tr>
                   <td
-                    colSpan={4}
-                    className="px-6 py-14 text-center"
+                    colSpan={5}
+                    className="px-5 py-14 text-center"
                   >
-                    <div className="mx-auto h-12 w-12 rounded-2xl bg-gray-100 grid place-items-center text-gray-400 text-xl">
-                      ▦
+                    <div className="mx-auto flex max-w-sm flex-col items-center">
+                      <div className="rounded-2xl bg-slate-100 p-4">
+                        <BriefcaseBusiness
+                          size={22}
+                          className="text-slate-400"
+                        />
+                      </div>
+
+                      <p className="mt-4 font-semibold text-slate-900">
+                        No applications yet
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        Start by adding a public job URL.
+                      </p>
+
+                      <Link
+                        href="/applications/new"
+                        className="mt-4 text-xs font-bold text-slate-900 hover:underline"
+                      >
+                        Create your first application →
+                      </Link>
                     </div>
-
-                    <p className="font-medium mt-4">
-                      No applications yet
-                    </p>
-
-                    <p className="text-sm text-gray-500 mt-1">
-                      Start by creating your first application.
-                    </p>
-
-                    <Link href="/applications/new">
-                      <Button className="mt-4">
-                        Create Application
-                      </Button>
-                    </Link>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
-}
-
-function StatCard({
-  title,
-  value,
-  icon,
-  description,
-}: {
-  title: string;
-  value: number;
-  icon: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition">
-      <div className="flex items-start justify-between">
-        <div className="h-10 w-10 rounded-xl bg-slate-100 grid place-items-center text-lg font-semibold text-slate-700">
-          {icon}
-        </div>
-
-        <span className="text-xs text-emerald-600 font-medium">
-          Live
-        </span>
-      </div>
-
-      <p className="text-sm text-gray-500 mt-5">{title}</p>
-
-      <p className="text-3xl font-bold tracking-tight mt-1">
-        {value}
-      </p>
-
-      <p className="text-xs text-gray-400 mt-1">
-        {description}
-      </p>
-    </div>
-  );
-}
-
-function QuickAction({
-  href,
-  title,
-  description,
-  icon,
-}: {
-  href: string;
-  title: string;
-  description: string;
-  icon: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-gray-300 transition"
-    >
-      <div className="flex items-start justify-between">
-        <div className="h-10 w-10 rounded-xl bg-gray-100 grid place-items-center font-semibold">
-          {icon}
-        </div>
-
-        <span className="text-gray-300 group-hover:text-slate-900 transition">
-          →
-        </span>
-      </div>
-
-      <h3 className="font-semibold mt-5">
-        {title}
-      </h3>
-
-      <p className="text-sm text-gray-500 mt-1 leading-6">
-        {description}
-      </p>
-    </Link>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    Draft: "bg-gray-100 text-gray-700",
-    "Job Extracted": "bg-blue-50 text-blue-700",
-    "Resume Ready": "bg-violet-50 text-violet-700",
-    Applied: "bg-indigo-50 text-indigo-700",
-    Interview: "bg-amber-50 text-amber-700",
-    Rejected: "bg-red-50 text-red-700",
-    Offer: "bg-emerald-50 text-emerald-700",
-    Withdrawn: "bg-gray-100 text-gray-600",
-  };
-
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-        styles[status] || "bg-gray-100 text-gray-700"
-      }`}
-    >
-      {status || "Draft"}
-    </span>
-  );
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
