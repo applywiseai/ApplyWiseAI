@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Card, Badge } from "@/components/ui";
 import Link from "next/link";
+import { Card, Badge, Button } from "@/components/ui";
 
 export default async function Dashboard() {
   const user = await requireUser();
@@ -9,235 +9,212 @@ export default async function Dashboard() {
 
   const isAdmin = user.role === "ADMIN";
 
+  const profilesQuery = isAdmin
+    ? db
+        .from("client_profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("is_deleted", false)
+    : db
+        .from("user_profile_assignments")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+  const applicationsQuery = isAdmin
+    ? db
+        .from("applications")
+        .select(
+          "id,status,job_title,company,location,created_at,profile_id",
+          { count: "exact" }
+        )
+        .order("created_at", { ascending: false })
+        .limit(6)
+    : db
+        .from("applications")
+        .select(
+          "id,status,job_title,company,location,created_at,profile_id",
+          { count: "exact" }
+        )
+        .eq("created_by", user.id)
+        .order("created_at", { ascending: false })
+        .limit(6);
+
+  const resumesQuery = isAdmin
+    ? db
+        .from("generated_resumes")
+        .select("id", { count: "exact", head: true })
+    : db
+        .from("generated_resumes")
+        .select("id", { count: "exact", head: true })
+        .eq("created_by", user.id);
+
   const [
-    profilesResult,
-    appsResult,
-    resumesResult,
+    { count: profileCount },
+    { data: applications },
+    { count: resumeCount },
   ] = await Promise.all([
-    isAdmin
-      ? db
-          .from("client_profiles")
-          .select("id", { count: "exact", head: true })
-      : db
-          .from("user_profile_assignments")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id),
-
-    isAdmin
-      ? db
-          .from("applications")
-          .select(
-            "id,status,job_title,company,created_at",
-            { count: "exact" }
-          )
-          .order("created_at", { ascending: false })
-          .limit(5)
-      : db
-          .from("applications")
-          .select(
-            "id,status,job_title,company,created_at",
-            { count: "exact" }
-          )
-          .eq("created_by", user.id)
-          .order("created_at", { ascending: false })
-          .limit(5),
-
-    isAdmin
-      ? db
-          .from("generated_resumes")
-          .select("id", { count: "exact", head: true })
-      : db
-          .from("generated_resumes")
-          .select("id", { count: "exact", head: true })
-          .eq("created_by", user.id),
+    profilesQuery,
+    applicationsQuery,
+    resumesQuery,
   ]);
 
-  const profileCount = profilesResult.count ?? 0;
-  const applicationCount = appsResult.count ?? 0;
-  const resumeCount = resumesResult.count ?? 0;
-  const applications = appsResult.data ?? [];
+  const totalApplications = applications?.length || 0;
+
+  const statusCounts = {
+    active:
+      applications?.filter(
+        (a: any) =>
+          !["Rejected", "Withdrawn"].includes(a.status)
+      ).length || 0,
+
+    interviews:
+      applications?.filter(
+        (a: any) => a.status === "Interview"
+      ).length || 0,
+
+    offers:
+      applications?.filter(
+        (a: any) => a.status === "Offer"
+      ).length || 0,
+  };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-10">
+      {/* Hero */}
+      <section className="relative overflow-hidden rounded-3xl bg-slate-950 p-7 md:p-9 text-white">
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute -bottom-32 left-1/3 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
 
-      {/* Header */}
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 mb-1">
-            {isAdmin ? "Admin Dashboard" : "Your Workspace"}
-          </p>
-
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-gray-950">
-            Welcome, {user.full_name}
-          </h1>
-
-          <p className="text-gray-500 mt-2">
-            Manage your job applications and tailored resumes.
-          </p>
-        </div>
-
-        <Link
-          href="/applications/new"
-          className="inline-flex items-center justify-center rounded-xl bg-gray-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 hover:shadow-md"
-        >
-          + New Application
-        </Link>
-      </div>
-
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-
-        <Card className="relative overflow-hidden border-0 bg-white shadow-sm ring-1 ring-gray-200 transition hover:-translate-y-0.5 hover:shadow-md">
-          <div className="p-1">
-            <p className="text-sm font-medium text-gray-500">
-              Assigned Profiles
-            </p>
-
-            <div className="mt-3 flex items-end justify-between">
-              <p className="text-4xl font-bold tracking-tight text-gray-950">
-                {profileCount}
-              </p>
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-lg">
-                👤
-              </div>
-            </div>
-
-            <p className="mt-3 text-xs text-gray-400">
-              Client profiles available to you
-            </p>
-          </div>
-        </Card>
-
-        <Card className="relative overflow-hidden border-0 bg-white shadow-sm ring-1 ring-gray-200 transition hover:-translate-y-0.5 hover:shadow-md">
-          <div className="p-1">
-            <p className="text-sm font-medium text-gray-500">
-              Applications
-            </p>
-
-            <div className="mt-3 flex items-end justify-between">
-              <p className="text-4xl font-bold tracking-tight text-gray-950">
-                {applicationCount}
-              </p>
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-lg">
-                💼
-              </div>
-            </div>
-
-            <p className="mt-3 text-xs text-gray-400">
-              Total applications created
-            </p>
-          </div>
-        </Card>
-
-        <Card className="relative overflow-hidden border-0 bg-white shadow-sm ring-1 ring-gray-200 transition hover:-translate-y-0.5 hover:shadow-md sm:col-span-2 lg:col-span-1">
-          <div className="p-1">
-            <p className="text-sm font-medium text-gray-500">
-              Resumes Generated
-            </p>
-
-            <div className="mt-3 flex items-end justify-between">
-              <p className="text-4xl font-bold tracking-tight text-gray-950">
-                {resumeCount}
-              </p>
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-lg">
-                📄
-              </div>
-            </div>
-
-            <p className="mt-3 text-xs text-gray-400">
-              Tailored resumes created
-            </p>
-          </div>
-        </Card>
-
-      </div>
-
-      {/* Quick action */}
-      <Card className="overflow-hidden border-0 bg-gray-950 text-white shadow-lg">
-        <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div>
-            <p className="text-lg font-semibold">
-              Ready to apply for a new job?
-            </p>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300 mb-4">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              ApplyWise AI
+            </div>
 
-            <p className="mt-1 text-sm text-gray-400">
-              Paste a public job URL and let ApplyWise AI build a targeted resume.
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Welcome back, {user.full_name}
+            </h1>
+
+            <p className="mt-2 max-w-xl text-sm md:text-base text-gray-400">
+              Manage applications, client profiles and AI-powered
+              tailored resumes from one place.
             </p>
           </div>
 
-          <Link
-            href="/applications/new"
-            className="inline-flex shrink-0 items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-950 transition hover:bg-gray-100"
-          >
-            Create Application →
+          <Link href="/applications/new">
+            <Button className="bg-white text-slate-950 hover:bg-gray-100 px-6">
+              + New Application
+            </Button>
           </Link>
         </div>
-      </Card>
+      </section>
 
-      {/* Recent Applications */}
-      <Card className="overflow-hidden border-0 bg-white shadow-sm ring-1 ring-gray-200">
+      {/* Stats */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard
+          title={isAdmin ? "Client Profiles" : "Assigned Profiles"}
+          value={profileCount || 0}
+          icon="◎"
+          description="Available profiles"
+        />
 
-        <div className="flex flex-col gap-2 border-b border-gray-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <StatCard
+          title="Applications"
+          value={applications?.length || 0}
+          icon="↗"
+          description="Recent applications"
+        />
+
+        <StatCard
+          title="Resumes Generated"
+          value={resumeCount || 0}
+          icon="▤"
+          description="AI tailored resumes"
+        />
+
+        <StatCard
+          title="Interviews"
+          value={statusCounts.interviews}
+          icon="✓"
+          description="Interview stage"
+        />
+      </section>
+
+      {/* Quick actions */}
+      <section className="grid md:grid-cols-3 gap-4">
+        <QuickAction
+          href="/applications/new"
+          title="Create Application"
+          description="Paste a public job URL and generate a tailored resume."
+          icon="↗"
+        />
+
+        <QuickAction
+          href="/applications"
+          title="View Applications"
+          description="Track your job applications and their current status."
+          icon="▦"
+        />
+
+        <QuickAction
+          href="/profiles"
+          title={isAdmin ? "Manage Profiles" : "My Profiles"}
+          description="View client information and master resumes."
+          icon="○"
+        />
+      </section>
+
+      {/* Recent applications */}
+      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b px-6 py-5">
           <div>
-            <h2 className="text-lg font-bold text-gray-950">
+            <h2 className="font-semibold text-lg">
               Recent Applications
             </h2>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Your latest job application activity
+            <p className="text-sm text-gray-500 mt-1">
+              Your latest application activity
             </p>
           </div>
 
           <Link
             href="/applications"
-            className="text-sm font-semibold text-gray-700 transition hover:text-gray-950"
+            className="text-sm font-medium text-slate-900 hover:underline"
           >
             View all →
           </Link>
         </div>
 
         <div className="overflow-x-auto">
-
-          <table className="w-full min-w-[650px] text-sm">
-
+          <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/70 text-left">
-                <th className="px-6 py-4 font-medium text-gray-500">
-                  Job
-                </th>
-
-                <th className="px-6 py-4 font-medium text-gray-500">
-                  Company
-                </th>
-
-                <th className="px-6 py-4 font-medium text-gray-500">
-                  Status
-                </th>
-
-                <th className="px-6 py-4 font-medium text-gray-500">
-                  Created
-                </th>
+              <tr className="border-b bg-gray-50/70 text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="px-6 py-4">Position</th>
+                <th className="px-6 py-4">Company</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Created</th>
               </tr>
             </thead>
 
             <tbody>
-
-              {applications.map((application: any) => (
+              {(applications || []).map((application: any) => (
                 <tr
                   key={application.id}
-                  className="border-b border-gray-100 last:border-0 transition hover:bg-gray-50/70"
+                  className="border-b last:border-0 hover:bg-gray-50 transition"
                 >
-
                   <td className="px-6 py-4">
                     <Link
                       href={`/applications/${application.id}`}
-                      className="font-semibold text-gray-950 transition hover:text-gray-600"
+                      className="font-semibold text-slate-900 hover:underline"
                     >
-                      {application.job_title || "Untitled Job"}
+                      {application.job_title || "Untitled Position"}
                     </Link>
+
+                    {application.location && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {application.location}
+                      </div>
+                    )}
                   </td>
 
                   <td className="px-6 py-4 text-gray-600">
@@ -245,62 +222,149 @@ export default async function Dashboard() {
                   </td>
 
                   <td className="px-6 py-4">
-                    <Badge>
-                      {application.status || "Draft"}
-                    </Badge>
+                    <StatusBadge status={application.status} />
                   </td>
 
                   <td className="px-6 py-4 text-gray-500">
-                    {new Date(
-                      application.created_at
-                    ).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {formatDate(application.created_at)}
                   </td>
-
                 </tr>
               ))}
 
-              {!applications.length && (
+              {!applications?.length && (
                 <tr>
                   <td
                     colSpan={4}
-                    className="px-6 py-16 text-center"
+                    className="px-6 py-14 text-center"
                   >
-                    <div className="mx-auto max-w-sm">
-
-                      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-xl">
-                        💼
-                      </div>
-
-                      <p className="font-semibold text-gray-900">
-                        No applications yet
-                      </p>
-
-                      <p className="mt-1 text-sm text-gray-500">
-                        Create your first application using a public job URL.
-                      </p>
-
-                      <Link
-                        href="/applications/new"
-                        className="mt-5 inline-flex items-center rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
-                      >
-                        Create Application
-                      </Link>
-
+                    <div className="mx-auto h-12 w-12 rounded-2xl bg-gray-100 grid place-items-center text-gray-400 text-xl">
+                      ▦
                     </div>
+
+                    <p className="font-medium mt-4">
+                      No applications yet
+                    </p>
+
+                    <p className="text-sm text-gray-500 mt-1">
+                      Start by creating your first application.
+                    </p>
+
+                    <Link href="/applications/new">
+                      <Button className="mt-4">
+                        Create Application
+                      </Button>
+                    </Link>
                   </td>
                 </tr>
               )}
-
             </tbody>
           </table>
-
         </div>
-      </Card>
-
+      </section>
     </div>
   );
+}
+
+function StatCard({
+  title,
+  value,
+  icon,
+  description,
+}: {
+  title: string;
+  value: number;
+  icon: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition">
+      <div className="flex items-start justify-between">
+        <div className="h-10 w-10 rounded-xl bg-slate-100 grid place-items-center text-lg font-semibold text-slate-700">
+          {icon}
+        </div>
+
+        <span className="text-xs text-emerald-600 font-medium">
+          Live
+        </span>
+      </div>
+
+      <p className="text-sm text-gray-500 mt-5">{title}</p>
+
+      <p className="text-3xl font-bold tracking-tight mt-1">
+        {value}
+      </p>
+
+      <p className="text-xs text-gray-400 mt-1">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function QuickAction({
+  href,
+  title,
+  description,
+  icon,
+}: {
+  href: string;
+  title: string;
+  description: string;
+  icon: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-gray-300 transition"
+    >
+      <div className="flex items-start justify-between">
+        <div className="h-10 w-10 rounded-xl bg-gray-100 grid place-items-center font-semibold">
+          {icon}
+        </div>
+
+        <span className="text-gray-300 group-hover:text-slate-900 transition">
+          →
+        </span>
+      </div>
+
+      <h3 className="font-semibold mt-5">
+        {title}
+      </h3>
+
+      <p className="text-sm text-gray-500 mt-1 leading-6">
+        {description}
+      </p>
+    </Link>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    Draft: "bg-gray-100 text-gray-700",
+    "Job Extracted": "bg-blue-50 text-blue-700",
+    "Resume Ready": "bg-violet-50 text-violet-700",
+    Applied: "bg-indigo-50 text-indigo-700",
+    Interview: "bg-amber-50 text-amber-700",
+    Rejected: "bg-red-50 text-red-700",
+    Offer: "bg-emerald-50 text-emerald-700",
+    Withdrawn: "bg-gray-100 text-gray-600",
+  };
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+        styles[status] || "bg-gray-100 text-gray-700"
+      }`}
+    >
+      {status || "Draft"}
+    </span>
+  );
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
