@@ -164,9 +164,9 @@ export default function Sidebar({ user }: SidebarProps) {
           <Link
             href="/applications/new"
             onClick={() => setMobileOpen(false)}
-            className="group relative flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white shadow-lg shadow-slate-950/10 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-slate-950/15 active:translate-y-0 active:scale-[0.985]"
+            className="group relative flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold !text-slate-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-md active:translate-y-0 active:scale-[0.985]"
           >
-            <span className="text-lg leading-none transition-transform duration-200 group-hover:rotate-90">
+            <span className="text-lg font-medium leading-none !text-slate-900 transition-transform duration-200 group-hover:rotate-90">
               +
             </span>
 
