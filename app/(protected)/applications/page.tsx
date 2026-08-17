@@ -2,77 +2,112 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   BriefcaseBusiness,
-  Clock3,
-  FileCheck2,
-  Gift,
+  ChevronLeft,
+  ChevronRight,
   Plus,
-  Sparkles,
 } from "lucide-react";
 
 import { requireUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Button } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 
-export default async function ApplicationsPage() {
+const PAGE_SIZE = 10;
+
+type SearchParams = {
+  page?: string;
+};
+
+export default async function ApplicationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const user = await requireUser();
   const db = createAdminClient();
 
-  let query = db
-    .from("applications")
-    .select(
-      "id,profile_id,created_by,job_title,company,location,status,created_at",
-      { count: "exact" }
-    )
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const params = await searchParams;
 
-  if (user.role !== "ADMIN") {
-    query = query.eq("created_by", user.id);
-  }
+  const requestedPage = Number(params.page || "1");
 
-  const { data, error, count } = await query;
+  const page =
+    Number.isFinite(requestedPage) && requestedPage > 0
+      ? Math.floor(requestedPage)
+      : 1;
+
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  const query =
+    user.role === "ADMIN"
+      ? db
+          .from("applications")
+          .select(
+            "id,job_title,company,location,status,created_at",
+            {
+              count: "exact",
+            }
+          )
+          .order("created_at", {
+            ascending: false,
+          })
+          .range(from, to)
+      : db
+          .from("applications")
+          .select(
+            "id,job_title,company,location,status,created_at",
+            {
+              count: "exact",
+            }
+          )
+          .eq("created_by", user.id)
+          .order("created_at", {
+            ascending: false,
+          })
+          .range(from, to);
+
+  const { data, count, error } = await query;
 
   if (error) {
     return (
-      <div className="rounded-3xl border border-red-200 bg-red-50 p-6">
-        <div className="flex items-start gap-3">
-          <div className="rounded-xl bg-red-100 p-2 text-red-600">
-            <BriefcaseBusiness size={18} />
-          </div>
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
+        <h2 className="font-semibold text-red-800">
+          Unable to load applications
+        </h2>
 
-          <div>
-            <h2 className="font-semibold text-red-900">
-              Unable to load applications
-            </h2>
-
-            <p className="mt-1 text-sm text-red-700">
-              Please refresh the page and try again.
-            </p>
-          </div>
-        </div>
+        <p className="mt-1 text-sm text-red-700">
+          Please refresh the page and try again.
+        </p>
       </div>
     );
   }
 
-  const rows = data ?? [];
+  const applications = data || [];
+  const total = count || 0;
 
-  const counts = {
-    all: count ?? rows.length,
-    applied: rows.filter((x) => x.status === "Applied").length,
-    interview: rows.filter((x) => x.status === "Interview").length,
-    offer: rows.filter((x) => x.status === "Offer").length,
-  };
+  const totalPages = Math.max(
+    1,
+    Math.ceil(total / PAGE_SIZE)
+  );
+
+  const currentPage = Math.min(page, totalPages);
+
+  const startItem =
+    total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+
+  const endItem = Math.min(
+    currentPage * PAGE_SIZE,
+    total
+  );
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-7 pb-10">
+
       {/* HEADER */}
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+
         <div>
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            <Sparkles size={13} />
-            {user.role === "ADMIN"
-              ? "Admin workspace"
-              : "Your workspace"}
+          <div className="mb-2 text-sm font-medium text-slate-500">
+            Workspace / Applications
           </div>
 
           <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
@@ -80,289 +115,378 @@ export default async function ApplicationsPage() {
           </h1>
 
           <p className="mt-2 text-sm text-slate-500">
-            Track your job applications, interviews and offers.
+            Track jobs, statuses and AI-generated resumes.
           </p>
         </div>
 
-        <Link href="/applications/new">
-          <Button className="group h-11 rounded-xl px-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
-            <Plus
-              size={17}
-              className="mr-2 transition-transform duration-200 group-hover:rotate-90"
-            />
-            New Application
-          </Button>
+        <Link
+          href="/applications/new"
+          prefetch
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-md active:scale-[0.98]"
+        >
+          <Plus size={17} />
+          New Application
         </Link>
       </div>
 
-      {/* STATS */}
+      {/* SUMMARY */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          label="All Applications"
-          value={counts.all}
-          icon={BriefcaseBusiness}
+
+        <MiniStat
+          label="Total Applications"
+          value={total}
         />
 
-        <StatCard
-          label="Applied"
-          value={counts.applied}
-          icon={FileCheck2}
+        <MiniStat
+          label="Showing"
+          value={applications.length}
         />
 
-        <StatCard
-          label="Interviews"
-          value={counts.interview}
-          icon={Clock3}
+        <MiniStat
+          label="Current Page"
+          value={currentPage}
         />
 
-        <StatCard
-          label="Offers"
-          value={counts.offer}
-          icon={Gift}
+        <MiniStat
+          label="Total Pages"
+          value={totalPages}
         />
+
       </div>
 
-      {/* TABLE CARD */}
-      <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_8px_35px_rgba(15,23,42,0.05)]">
-        {/* CARD HEADER */}
-        <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+      {/* TABLE */}
+      <Card className="overflow-hidden p-0">
+
+        {/* TABLE HEADER */}
+        <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 sm:px-6 md:flex-row md:items-center md:justify-between">
+
           <div>
             <h2 className="font-bold text-slate-950">
               Application History
             </h2>
 
             <p className="mt-1 text-xs text-slate-500">
-              {rows.length
-                ? `Showing your latest ${rows.length} applications`
-                : "No applications found"}
+              {total === 0
+                ? "No applications found."
+                : `Showing ${startItem}-${endItem} of ${total} applications`}
             </p>
           </div>
 
-          <div className="inline-flex w-fit items-center rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500">
+          <div className="rounded-xl bg-slate-50 px-4 py-2 text-xs font-medium text-slate-500">
             {user.role === "ADMIN"
               ? "All applications"
               : "Your applications"}
           </div>
+
         </div>
 
         {/* TABLE */}
         <div className="overflow-x-auto">
+
           <table className="w-full min-w-[850px] text-sm">
+
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/70 text-left">
-                <th className="px-7 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+
+                <th className="px-6 py-4">
                   Position
                 </th>
 
-                <th className="px-5 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-6 py-4">
                   Company
                 </th>
 
-                <th className="px-5 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-6 py-4">
                   Location
                 </th>
 
-                <th className="px-5 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-6 py-4">
                   Status
                 </th>
 
-                <th className="px-5 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-6 py-4">
                   Created
                 </th>
 
-                <th className="px-7 py-4 text-right text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-6 py-4 text-right">
                   Action
                 </th>
+
               </tr>
             </thead>
 
             <tbody>
-              {rows.map((application) => (
+
+              {applications.map((application: any) => (
+
                 <tr
                   key={application.id}
-                  className="group border-b border-slate-100 last:border-0 transition-all duration-200 hover:bg-slate-50/70"
+                  className="border-b border-slate-100 transition-colors duration-150 last:border-0 hover:bg-slate-50/70"
                 >
+
                   {/* POSITION */}
-                  <td className="px-7 py-5">
+                  <td className="px-6 py-5">
+
                     <Link
                       href={`/applications/${application.id}`}
-                      className="group/link block"
+                      prefetch
+                      className="font-semibold text-slate-900 transition-colors hover:text-slate-600"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500 transition-all duration-200 group-hover:bg-slate-950 group-hover:text-white">
-                          <BriefcaseBusiness size={17} />
-                        </div>
-
-                        <div>
-                          <p className="font-semibold text-slate-900 transition-colors group-hover/link:text-slate-600">
-                            {application.job_title ||
-                              "Untitled Position"}
-                          </p>
-
-                          <p className="mt-0.5 text-[11px] font-mono text-slate-400">
-                            #{application.id.slice(0, 8)}
-                          </p>
-                        </div>
-                      </div>
+                      {application.job_title ||
+                        "Untitled Position"}
                     </Link>
+
+                    <div className="mt-1 font-mono text-[11px] text-slate-400">
+                      #{application.id.slice(0, 8)}
+                    </div>
+
                   </td>
 
                   {/* COMPANY */}
-                  <td className="px-5 py-5">
-                    <span className="font-medium text-slate-700">
-                      {application.company || "Unknown"}
+                  <td className="px-6 py-5">
+
+                    <span className="font-medium text-slate-800">
+                      {application.company ||
+                        "Unknown"}
                     </span>
+
                   </td>
 
                   {/* LOCATION */}
-                  <td className="px-5 py-5 text-slate-500">
+                  <td className="px-6 py-5 text-slate-500">
                     {application.location || "—"}
                   </td>
 
                   {/* STATUS */}
-                  <td className="px-5 py-5">
-                    <StatusBadge status={application.status} />
+                  <td className="px-6 py-5">
+                    <StatusBadge
+                      status={application.status}
+                    />
                   </td>
 
                   {/* DATE */}
-                  <td className="px-5 py-5 text-slate-500">
-                    {formatDate(application.created_at)}
+                  <td className="px-6 py-5 text-slate-500">
+                    {formatDate(
+                      application.created_at
+                    )}
                   </td>
 
                   {/* ACTION */}
-                  <td className="px-7 py-5 text-right">
+                  <td className="px-6 py-5 text-right">
+
                     <Link
                       href={`/applications/${application.id}`}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 opacity-70 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-950 hover:shadow-md group-hover:opacity-100"
+                      prefetch
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 active:scale-[0.97]"
                     >
                       View
-                      <ArrowUpRight
-                        size={14}
-                        className="transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                      />
+                      <ArrowUpRight size={14} />
                     </Link>
+
                   </td>
+
                 </tr>
+
               ))}
 
               {/* EMPTY */}
-              {!rows.length && (
+              {!applications.length && (
+
                 <tr>
-                  <td colSpan={6} className="px-6 py-20">
-                    <div className="mx-auto flex max-w-sm flex-col items-center text-center">
-                      <div className="grid h-16 w-16 place-items-center rounded-2xl bg-slate-100">
+                  <td
+                    colSpan={6}
+                    className="px-6 py-20 text-center"
+                  >
+
+                    <div className="mx-auto flex max-w-sm flex-col items-center">
+
+                      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-slate-100">
                         <BriefcaseBusiness
-                          size={25}
+                          size={23}
                           className="text-slate-400"
                         />
                       </div>
 
-                      <h3 className="mt-5 font-semibold text-slate-900">
+                      <h3 className="mt-4 font-semibold text-slate-900">
                         No applications yet
                       </h3>
 
                       <p className="mt-1 text-sm text-slate-500">
-                        Start by adding a public job URL.
+                        Create an application from a public job URL.
                       </p>
 
-                      <Link href="/applications/new">
-                        <Button className="mt-5 rounded-xl">
-                          <Plus size={16} className="mr-2" />
-                          Create Application
+                      <Link
+                        href="/applications/new"
+                        prefetch
+                        className="mt-5"
+                      >
+                        <Button>
+                          Create First Application
                         </Button>
                       </Link>
+
                     </div>
+
                   </td>
                 </tr>
+
               )}
+
             </tbody>
+
           </table>
+
         </div>
-      </section>
+
+        {/* PAGINATION */}
+        {totalPages > 1 && (
+
+          <div className="flex flex-col gap-4 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+
+            <p className="text-xs text-slate-500">
+              Page {currentPage} of {totalPages}
+            </p>
+
+            <div className="flex items-center gap-2">
+
+              {currentPage > 1 ? (
+                <Link
+                  href={`/applications?page=${currentPage - 1}`}
+                  prefetch
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  <ChevronLeft size={15} />
+                  Previous
+                </Link>
+              ) : (
+                <span className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-100 bg-slate-50 px-3 text-xs font-semibold text-slate-300">
+                  <ChevronLeft size={15} />
+                  Previous
+                </span>
+              )}
+
+              <div className="flex h-9 min-w-9 items-center justify-center rounded-lg bg-slate-950 px-3 text-xs font-bold text-white">
+                {currentPage}
+              </div>
+
+              {currentPage < totalPages ? (
+                <Link
+                  href={`/applications?page=${currentPage + 1}`}
+                  prefetch
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Next
+                  <ChevronRight size={15} />
+                </Link>
+              ) : (
+                <span className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-100 bg-slate-50 px-3 text-xs font-semibold text-slate-300">
+                  Next
+                  <ChevronRight size={15} />
+                </span>
+              )}
+
+            </div>
+
+          </div>
+
+        )}
+
+      </Card>
     </div>
   );
 }
 
+
 /* -------------------------------- */
-/* STAT CARD */
+/* Mini Stat */
 /* -------------------------------- */
 
-function StatCard({
+function MiniStat({
   label,
   value,
-  icon: Icon,
 }: {
   label: string;
   value: number;
-  icon: any;
 }) {
   return (
-    <div className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_5px_25px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            {label}
-          </p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
 
-          <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
-            {value}
-          </p>
-        </div>
+      <p className="text-sm font-medium text-slate-500">
+        {label}
+      </p>
 
-        <div className="grid h-11 w-11 place-items-center rounded-xl bg-slate-100 text-slate-600 transition-all duration-200 group-hover:bg-slate-950 group-hover:text-white">
-          <Icon size={19} />
-        </div>
-      </div>
+      <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+        {value}
+      </p>
+
     </div>
   );
 }
 
+
 /* -------------------------------- */
-/* STATUS */
+/* Status Badge */
 /* -------------------------------- */
 
-function StatusBadge({ status }: { status: string | null }) {
+function StatusBadge({
+  status,
+}: {
+  status: string | null;
+}) {
   const styles: Record<string, string> = {
-    Draft: "bg-slate-100 text-slate-600 ring-slate-200",
+    Draft:
+      "bg-slate-100 text-slate-700",
+
     "Job Extracted":
-      "bg-blue-50 text-blue-700 ring-blue-100",
+      "bg-blue-50 text-blue-700",
+
     "Resume Ready":
-      "bg-violet-50 text-violet-700 ring-violet-100",
+      "bg-violet-50 text-violet-700",
+
     Applied:
-      "bg-indigo-50 text-indigo-700 ring-indigo-100",
+      "bg-indigo-50 text-indigo-700",
+
     Interview:
-      "bg-amber-50 text-amber-700 ring-amber-100",
+      "bg-amber-50 text-amber-700",
+
     Rejected:
-      "bg-red-50 text-red-700 ring-red-100",
+      "bg-red-50 text-red-700",
+
     Offer:
-      "bg-emerald-50 text-emerald-700 ring-emerald-100",
+      "bg-emerald-50 text-emerald-700",
+
     Withdrawn:
-      "bg-slate-100 text-slate-500 ring-slate-200",
+      "bg-slate-100 text-slate-600",
   };
 
-  const value = status || "Draft";
+  const current = status || "Draft";
 
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${
-        styles[value] || styles.Draft
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+        styles[current] ||
+        "bg-slate-100 text-slate-700"
       }`}
     >
-      {value}
+      {current}
     </span>
   );
 }
 
+
 /* -------------------------------- */
-/* DATE */
+/* Date */
 /* -------------------------------- */
 
-function formatDate(value: string | null) {
+function formatDate(value: string) {
   if (!value) return "—";
 
-  return new Date(value).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return new Date(value).toLocaleDateString(
+    "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }
+  );
 }
