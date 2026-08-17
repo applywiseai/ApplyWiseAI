@@ -88,16 +88,18 @@ export default async function Dashboard() {
   ];
 
   return (
-    <div className="space-y-7 pb-10">
+    <div className="w-full space-y-7 pb-10">
       {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl border border-blue-400/10 bg-gradient-to-br from-[#0d2038] via-[#0b1a2e] to-[#081321] p-6 shadow-2xl shadow-black/20 sm:p-8">
         <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
+
         <div className="pointer-events-none absolute -bottom-32 left-1/3 h-64 w-64 rounded-full bg-cyan-400/5 blur-3xl" />
 
         <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/10 bg-blue-400/5 px-3 py-1.5 text-[11px] font-semibold text-blue-300">
               <Sparkles size={13} />
+
               {user.role === "ADMIN"
                 ? "Admin workspace"
                 : "AI workspace"}
@@ -118,7 +120,9 @@ export default async function Dashboard() {
             className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all duration-200 hover:-translate-y-0.5 hover:from-blue-400 hover:to-blue-500 hover:shadow-blue-500/30 active:translate-y-0"
           >
             <Plus size={17} />
+
             New Application
+
             <ArrowUpRight
               size={15}
               className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
@@ -128,13 +132,17 @@ export default async function Dashboard() {
       </section>
 
       {/* Stats */}
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid w-full gap-4 md:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
 
           return (
-            <Link key={stat.label} href={stat.href}>
-              <div className="group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0c192b] p-5 transition-all duration-200 hover:-translate-y-1 hover:border-blue-400/20 hover:bg-[#0e1d32] hover:shadow-xl hover:shadow-black/20">
+            <Link
+              key={stat.label}
+              href={stat.href}
+              className="min-w-0"
+            >
+              <div className="group relative h-full overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0c192b] p-5 transition-all duration-200 hover:-translate-y-1 hover:border-blue-400/20 hover:bg-[#0e1d32] hover:shadow-xl hover:shadow-black/20">
                 <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-blue-500/5 blur-2xl transition group-hover:bg-blue-500/10" />
 
                 <div className="relative flex items-start justify-between">
@@ -147,8 +155,9 @@ export default async function Dashboard() {
                       {stat.value}
                     </p>
 
-                    <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-slate-500 group-hover:text-blue-400">
+                    <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-slate-500 transition group-hover:text-blue-400">
                       View details
+
                       <ArrowUpRight size={13} />
                     </div>
                   </div>
@@ -164,7 +173,7 @@ export default async function Dashboard() {
       </section>
 
       {/* Applications */}
-      <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0c192b] shadow-xl shadow-black/10">
+      <section className="w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0c192b] shadow-xl shadow-black/10">
         <div className="flex flex-col gap-4 border-b border-white/[0.06] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <div className="flex items-center gap-2">
@@ -187,6 +196,7 @@ export default async function Dashboard() {
             className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 transition hover:text-blue-400"
           >
             View all
+
             <ArrowUpRight size={13} />
           </Link>
         </div>
@@ -195,10 +205,22 @@ export default async function Dashboard() {
           <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-white/[0.05] bg-white/[0.015] text-left text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600">
-                <th className="px-6 py-4">Position</th>
-                <th className="px-6 py-4">Company</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Created</th>
+                <th className="px-6 py-4">
+                  Position
+                </th>
+
+                <th className="px-6 py-4">
+                  Company
+                </th>
+
+                <th className="px-6 py-4">
+                  Status
+                </th>
+
+                <th className="px-6 py-4">
+                  Created
+                </th>
+
                 <th className="px-6 py-4" />
               </tr>
             </thead>
@@ -250,7 +272,10 @@ export default async function Dashboard() {
 
               {!apps.data?.length && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-16 text-center">
+                  <td
+                    colSpan={5}
+                    className="px-6 py-16 text-center"
+                  >
                     <div className="mx-auto flex max-w-sm flex-col items-center">
                       <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
                         <BriefcaseBusiness
@@ -269,7 +294,7 @@ export default async function Dashboard() {
 
                       <Link
                         href="/applications/new"
-                        className="mt-4 text-xs font-bold text-blue-400 hover:text-blue-300"
+                        className="mt-4 text-xs font-bold text-blue-400 transition hover:text-blue-300"
                       >
                         Create your first application →
                       </Link>
@@ -282,31 +307,43 @@ export default async function Dashboard() {
         </div>
       </section>
 
-      {/* Small footer insight */}
+      {/* Footer insight */}
       <div className="flex items-center gap-2 px-1 text-xs text-slate-600">
         <TrendingUp size={13} />
+
         Keep your applications updated to track your progress.
       </div>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({
+  status,
+}: {
+  status: string;
+}) {
   const styles: Record<string, string> = {
     Draft:
       "border-slate-400/10 bg-slate-400/5 text-slate-400",
+
     "Job Extracted":
       "border-blue-400/10 bg-blue-400/10 text-blue-400",
+
     "Resume Ready":
       "border-violet-400/10 bg-violet-400/10 text-violet-400",
+
     Applied:
       "border-cyan-400/10 bg-cyan-400/10 text-cyan-400",
+
     Interview:
       "border-amber-400/10 bg-amber-400/10 text-amber-400",
+
     Rejected:
       "border-red-400/10 bg-red-400/10 text-red-400",
+
     Offer:
       "border-emerald-400/10 bg-emerald-400/10 text-emerald-400",
+
     Withdrawn:
       "border-slate-400/10 bg-slate-400/5 text-slate-500",
   };
