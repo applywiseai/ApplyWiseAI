@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import Sidebar from "@/components/sidebar";
-import "./globals.css";
+
 export default async function ProtectedLayout({
   children,
 }: {
