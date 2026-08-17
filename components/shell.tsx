@@ -12,8 +12,8 @@ export default async function Shell({
     <div className="min-h-screen bg-[#071426]">
       <Sidebar user={user} />
 
-      <main className="min-h-screen md:ml-64">
-        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+      <main className="min-h-screen lg:ml-64">
+        <div className="w-full p-4 sm:p-6 lg:p-8">
           {children}
         </div>
       </main>
