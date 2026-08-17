@@ -15,76 +15,74 @@ export default async function Dashboard() {
   const user = await requireUser();
   const db = createAdminClient();
 
-  /*
-   * Run all dashboard queries in parallel.
-   * This avoids waiting for one database query before starting the next.
-   */
-
-  const profilesQuery =
+  const [
+    profilesResult,
+    applicationsResult,
+    resumesResult,
+  ] = await Promise.all([
     user.role === "ADMIN"
       ? db
           .from("client_profiles")
-          .select("id", { count: "exact", head: true })
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
           .eq("is_deleted", false)
       : db
           .from("user_profile_assignments")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id);
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
+          .eq("user_id", user.id),
 
-  const applicationsQuery =
     user.role === "ADMIN"
       ? db
           .from("applications")
           .select(
             "id,status,job_title,company,created_at",
-            { count: "exact" }
+            {
+              count: "exact",
+            }
           )
-          .order("created_at", { ascending: false })
+          .order("created_at", {
+            ascending: false,
+          })
           .limit(6)
       : db
           .from("applications")
           .select(
             "id,status,job_title,company,created_at",
-            { count: "exact" }
+            {
+              count: "exact",
+            }
           )
           .eq("created_by", user.id)
-          .order("created_at", { ascending: false })
-          .limit(6);
+          .order("created_at", {
+            ascending: false,
+          })
+          .limit(6),
 
-  const resumesQuery =
     user.role === "ADMIN"
       ? db
           .from("generated_resumes")
-          .select("id", { count: "exact", head: true })
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
       : db
           .from("generated_resumes")
-          .select("id", { count: "exact", head: true })
-          .eq("created_by", user.id);
-
-  const [
-    { count: profileCount, error: profileError },
-    {
-      count: applicationCount,
-      data: applications,
-      error: applicationError,
-    },
-    { count: resumeCount, error: resumeError },
-  ] = await Promise.all([
-    profilesQuery,
-    applicationsQuery,
-    resumesQuery,
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
+          .eq("created_by", user.id),
   ]);
 
-  /*
-   * Keep the page usable even if one query fails.
-   * We don't expose database errors to the user.
-   */
-
-  const profileTotal = profileError ? 0 : profileCount || 0;
-  const applicationTotal = applicationError
-    ? 0
-    : applicationCount || 0;
-  const resumeTotal = resumeError ? 0 : resumeCount || 0;
+  const profilesCount = profilesResult.count || 0;
+  const applications = applicationsResult.data || [];
+  const applicationsCount = applicationsResult.count || 0;
+  const resumesCount = resumesResult.count || 0;
 
   const stats = [
     {
@@ -92,7 +90,7 @@ export default async function Dashboard() {
         user.role === "ADMIN"
           ? "Client Profiles"
           : "Assigned Profiles",
-      value: profileTotal,
+      value: profilesCount,
       icon: UserRound,
       href:
         user.role === "ADMIN"
@@ -101,13 +99,13 @@ export default async function Dashboard() {
     },
     {
       label: "Applications",
-      value: applicationTotal,
+      value: applicationsCount,
       icon: BriefcaseBusiness,
       href: "/applications",
     },
     {
       label: "Resumes Generated",
-      value: resumeTotal,
+      value: resumesCount,
       icon: FileText,
       href:
         user.role === "ADMIN"
@@ -119,7 +117,7 @@ export default async function Dashboard() {
   return (
     <div className="space-y-8 pt-14 lg:pt-0">
 
-      {/* HEADER */}
+      {/* Header */}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="mb-2 text-sm font-medium text-slate-500">
@@ -139,26 +137,26 @@ export default async function Dashboard() {
 
         <Link
           href="/applications/new"
-          className="group inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg active:scale-[0.98]"
+          prefetch
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-md active:scale-[0.98]"
         >
-          <Plus
-            size={17}
-            className="transition-transform duration-200 group-hover:rotate-90"
-          />
-
+          <Plus size={17} />
           New Application
         </Link>
       </div>
 
-      {/* STATS */}
+      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
 
           return (
-            <Link key={stat.label} href={stat.href}>
+            <Link
+              key={stat.label}
+              href={stat.href}
+              prefetch
+            >
               <Card className="group relative overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
-
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-500">
@@ -175,24 +173,18 @@ export default async function Dashboard() {
                   </div>
                 </div>
 
-                <div className="mt-5 flex items-center gap-1 text-xs font-semibold text-slate-500 transition-colors group-hover:text-slate-950">
+                <div className="mt-5 flex items-center gap-1 text-xs font-semibold text-slate-500 transition-colors group-hover:text-slate-900">
                   View details
-
-                  <ArrowUpRight
-                    size={13}
-                    className="transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                  />
+                  <ArrowUpRight size={13} />
                 </div>
-
               </Card>
             </Link>
           );
         })}
       </div>
 
-      {/* RECENT APPLICATIONS */}
+      {/* Recent Applications */}
       <Card className="overflow-hidden p-0">
-
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6">
           <div>
             <h2 className="font-bold text-slate-950">
@@ -206,23 +198,17 @@ export default async function Dashboard() {
 
           <Link
             href="/applications"
-            className="group flex items-center gap-1 text-xs font-semibold text-slate-600 transition-colors hover:text-slate-950"
+            prefetch
+            className="text-xs font-semibold text-slate-600 transition hover:text-slate-950"
           >
-            View all
-
-            <ArrowUpRight
-              size={13}
-              className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-            />
+            View all →
           </Link>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[650px] text-sm">
-
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs font-semibold text-slate-500">
-
                 <th className="px-5 py-3.5">
                   Position
                 </th>
@@ -239,43 +225,37 @@ export default async function Dashboard() {
                   Created
                 </th>
 
-                <th className="px-5 py-3.5" />
-
+                <th />
               </tr>
             </thead>
 
             <tbody>
-
-              {(applications || []).map((application: any) => (
+              {applications.map((application: any) => (
                 <tr
                   key={application.id}
-                  className="group border-b border-slate-100 last:border-0 transition-colors duration-150 hover:bg-slate-50/70"
+                  className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70"
                 >
-
-                  {/* POSITION */}
                   <td className="px-5 py-4">
                     <Link
                       href={`/applications/${application.id}`}
-                      className="font-semibold text-slate-900 transition-colors hover:text-slate-600 hover:underline"
+                      prefetch
+                      className="font-semibold text-slate-900 hover:underline"
                     >
                       {application.job_title ||
                         "Untitled position"}
                     </Link>
                   </td>
 
-                  {/* COMPANY */}
                   <td className="px-5 py-4 text-slate-600">
                     {application.company || "—"}
                   </td>
 
-                  {/* STATUS */}
                   <td className="px-5 py-4">
                     <Badge>
                       {application.status || "Draft"}
                     </Badge>
                   </td>
 
-                  {/* CREATED */}
                   <td className="px-5 py-4 text-slate-500">
                     {application.created_at
                       ? new Date(
@@ -284,28 +264,25 @@ export default async function Dashboard() {
                       : "—"}
                   </td>
 
-                  {/* ACTION */}
                   <td className="px-5 py-4 text-right">
                     <Link
                       href={`/applications/${application.id}`}
-                      className="inline-flex rounded-lg p-2 text-slate-400 opacity-70 transition-all duration-150 hover:bg-slate-100 hover:text-slate-900 group-hover:opacity-100"
+                      prefetch
+                      className="inline-flex rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                     >
                       <ArrowUpRight size={16} />
                     </Link>
                   </td>
-
                 </tr>
               ))}
 
-              {/* EMPTY STATE */}
-              {!applications?.length && (
+              {!applications.length && (
                 <tr>
                   <td
                     colSpan={5}
                     className="px-5 py-14 text-center"
                   >
                     <div className="mx-auto flex max-w-sm flex-col items-center">
-
                       <div className="rounded-2xl bg-slate-100 p-4">
                         <BriefcaseBusiness
                           size={22}
@@ -323,22 +300,18 @@ export default async function Dashboard() {
 
                       <Link
                         href="/applications/new"
-                        className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-slate-900 hover:underline"
+                        prefetch
+                        className="mt-4 text-xs font-bold text-slate-900 hover:underline"
                       >
-                        Create your first application
-
-                        <ArrowUpRight size={13} />
+                        Create your first application →
                       </Link>
-
                     </div>
                   </td>
                 </tr>
               )}
-
             </tbody>
           </table>
         </div>
-
       </Card>
     </div>
   );
