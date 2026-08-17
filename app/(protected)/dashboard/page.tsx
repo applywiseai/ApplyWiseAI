@@ -5,84 +5,57 @@ import {
   FileText,
   UserRound,
   Plus,
+  Sparkles,
+  TrendingUp,
 } from "lucide-react";
 
 import { requireUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Card, Badge } from "@/components/ui";
 
 export default async function Dashboard() {
   const user = await requireUser();
   const db = createAdminClient();
 
-  const [
-    profilesResult,
-    applicationsResult,
-    resumesResult,
-  ] = await Promise.all([
+  const profiles =
     user.role === "ADMIN"
-      ? db
+      ? await db
           .from("client_profiles")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
+          .select("id", { count: "exact", head: true })
           .eq("is_deleted", false)
-      : db
+      : await db
           .from("user_profile_assignments")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq("user_id", user.id),
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id);
 
+  const apps =
     user.role === "ADMIN"
-      ? db
+      ? await db
           .from("applications")
           .select(
             "id,status,job_title,company,created_at",
-            {
-              count: "exact",
-            }
+            { count: "exact" }
           )
-          .order("created_at", {
-            ascending: false,
-          })
+          .order("created_at", { ascending: false })
           .limit(6)
-      : db
+      : await db
           .from("applications")
           .select(
             "id,status,job_title,company,created_at",
-            {
-              count: "exact",
-            }
+            { count: "exact" }
           )
           .eq("created_by", user.id)
-          .order("created_at", {
-            ascending: false,
-          })
-          .limit(6),
+          .order("created_at", { ascending: false })
+          .limit(6);
 
+  const resumes =
     user.role === "ADMIN"
-      ? db
+      ? await db
           .from("generated_resumes")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-      : db
+          .select("id", { count: "exact", head: true })
+      : await db
           .from("generated_resumes")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq("created_by", user.id),
-  ]);
-
-  const profilesCount = profilesResult.count || 0;
-  const applications = applicationsResult.data || [];
-  const applicationsCount = applicationsResult.count || 0;
-  const resumesCount = resumesResult.count || 0;
+          .select("id", { count: "exact", head: true })
+          .eq("created_by", user.id);
 
   const stats = [
     {
@@ -90,7 +63,7 @@ export default async function Dashboard() {
         user.role === "ADMIN"
           ? "Client Profiles"
           : "Assigned Profiles",
-      value: profilesCount,
+      value: profiles.count || 0,
       icon: UserRound,
       href:
         user.role === "ADMIN"
@@ -99,13 +72,13 @@ export default async function Dashboard() {
     },
     {
       label: "Applications",
-      value: applicationsCount,
+      value: apps.count || 0,
       icon: BriefcaseBusiness,
       href: "/applications",
     },
     {
       label: "Resumes Generated",
-      value: resumesCount,
+      value: resumes.count || 0,
       icon: FileText,
       href:
         user.role === "ADMIN"
@@ -115,148 +88,148 @@ export default async function Dashboard() {
   ];
 
   return (
-    <div className="space-y-8 pt-14 lg:pt-0">
+    <div className="space-y-7 pb-10">
+      {/* Hero */}
+      <section className="relative overflow-hidden rounded-3xl border border-blue-400/10 bg-gradient-to-br from-[#0d2038] via-[#0b1a2e] to-[#081321] p-6 shadow-2xl shadow-black/20 sm:p-8">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 left-1/3 h-64 w-64 rounded-full bg-cyan-400/5 blur-3xl" />
 
-      {/* Header */}
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="mb-2 text-sm font-medium text-slate-500">
-            {user.role === "ADMIN"
-              ? "Admin workspace"
-              : "Your workspace"}
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/10 bg-blue-400/5 px-3 py-1.5 text-[11px] font-semibold text-blue-300">
+              <Sparkles size={13} />
+              {user.role === "ADMIN"
+                ? "Admin workspace"
+                : "AI workspace"}
+            </div>
+
+            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              Welcome, {user.full_name || "there"} 👋
+            </h1>
+
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+              Manage your job applications and create
+              intelligent, targeted resumes from one place.
+            </p>
           </div>
 
-          <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-            Welcome, {user.full_name || "there"}
-          </h1>
-
-          <p className="mt-2 text-sm text-slate-500">
-            Manage job applications and create targeted resumes.
-          </p>
+          <Link
+            href="/applications/new"
+            className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all duration-200 hover:-translate-y-0.5 hover:from-blue-400 hover:to-blue-500 hover:shadow-blue-500/30 active:translate-y-0"
+          >
+            <Plus size={17} />
+            New Application
+            <ArrowUpRight
+              size={15}
+              className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+            />
+          </Link>
         </div>
-
-        <Link
-          href="/applications/new"
-          prefetch
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-md active:scale-[0.98]"
-        >
-          <Plus size={17} />
-          New Application
-        </Link>
-      </div>
+      </section>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
 
           return (
-            <Link
-              key={stat.label}
-              href={stat.href}
-              prefetch
-            >
-              <Card className="group relative overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
-                <div className="flex items-start justify-between">
+            <Link key={stat.label} href={stat.href}>
+              <div className="group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0c192b] p-5 transition-all duration-200 hover:-translate-y-1 hover:border-blue-400/20 hover:bg-[#0e1d32] hover:shadow-xl hover:shadow-black/20">
+                <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-blue-500/5 blur-2xl transition group-hover:bg-blue-500/10" />
+
+                <div className="relative flex items-start justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-500">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                       {stat.label}
                     </p>
 
-                    <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+                    <p className="mt-3 text-3xl font-bold tracking-tight text-white">
                       {stat.value}
                     </p>
+
+                    <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-slate-500 group-hover:text-blue-400">
+                      View details
+                      <ArrowUpRight size={13} />
+                    </div>
                   </div>
 
-                  <div className="rounded-xl bg-slate-100 p-3 text-slate-700 transition-all duration-200 group-hover:bg-slate-950 group-hover:text-white">
-                    <Icon size={19} />
+                  <div className="rounded-xl border border-blue-400/10 bg-blue-500/10 p-3 text-blue-400 transition-all duration-200 group-hover:bg-blue-500/15 group-hover:text-blue-300">
+                    <Icon size={20} />
                   </div>
                 </div>
-
-                <div className="mt-5 flex items-center gap-1 text-xs font-semibold text-slate-500 transition-colors group-hover:text-slate-900">
-                  View details
-                  <ArrowUpRight size={13} />
-                </div>
-              </Card>
+              </div>
             </Link>
           );
         })}
-      </div>
+      </section>
 
-      {/* Recent Applications */}
-      <Card className="overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6">
+      {/* Applications */}
+      <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0c192b] shadow-xl shadow-black/10">
+        <div className="flex flex-col gap-4 border-b border-white/[0.06] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <h2 className="font-bold text-slate-950">
-              Recent Applications
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-white">
+                Recent Applications
+              </h2>
+
+              <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400">
+                Latest
+              </span>
+            </div>
 
             <p className="mt-1 text-xs text-slate-500">
-              Your latest job application activity.
+              Your latest application activity.
             </p>
           </div>
 
           <Link
             href="/applications"
-            prefetch
-            className="text-xs font-semibold text-slate-600 transition hover:text-slate-950"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 transition hover:text-blue-400"
           >
-            View all →
+            View all
+            <ArrowUpRight size={13} />
           </Link>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[650px] text-sm">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs font-semibold text-slate-500">
-                <th className="px-5 py-3.5">
-                  Position
-                </th>
-
-                <th className="px-5 py-3.5">
-                  Company
-                </th>
-
-                <th className="px-5 py-3.5">
-                  Status
-                </th>
-
-                <th className="px-5 py-3.5">
-                  Created
-                </th>
-
-                <th />
+              <tr className="border-b border-white/[0.05] bg-white/[0.015] text-left text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600">
+                <th className="px-6 py-4">Position</th>
+                <th className="px-6 py-4">Company</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Created</th>
+                <th className="px-6 py-4" />
               </tr>
             </thead>
 
             <tbody>
-              {applications.map((application: any) => (
+              {(apps.data || []).map((application: any) => (
                 <tr
                   key={application.id}
-                  className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70"
+                  className="border-b border-white/[0.05] transition-colors last:border-0 hover:bg-white/[0.025]"
                 >
-                  <td className="px-5 py-4">
+                  <td className="px-6 py-4">
                     <Link
                       href={`/applications/${application.id}`}
-                      prefetch
-                      className="font-semibold text-slate-900 hover:underline"
+                      className="font-semibold text-slate-200 transition hover:text-blue-400"
                     >
                       {application.job_title ||
                         "Untitled position"}
                     </Link>
                   </td>
 
-                  <td className="px-5 py-4 text-slate-600">
+                  <td className="px-6 py-4 text-slate-400">
                     {application.company || "—"}
                   </td>
 
-                  <td className="px-5 py-4">
-                    <Badge>
-                      {application.status || "Draft"}
-                    </Badge>
+                  <td className="px-6 py-4">
+                    <StatusBadge
+                      status={application.status}
+                    />
                   </td>
 
-                  <td className="px-5 py-4 text-slate-500">
+                  <td className="px-6 py-4 text-slate-500">
                     {application.created_at
                       ? new Date(
                           application.created_at
@@ -264,44 +237,39 @@ export default async function Dashboard() {
                       : "—"}
                   </td>
 
-                  <td className="px-5 py-4 text-right">
+                  <td className="px-6 py-4 text-right">
                     <Link
                       href={`/applications/${application.id}`}
-                      prefetch
-                      className="inline-flex rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                      className="inline-flex rounded-lg border border-white/[0.06] p-2 text-slate-600 transition hover:border-blue-400/20 hover:bg-blue-500/10 hover:text-blue-400"
                     >
-                      <ArrowUpRight size={16} />
+                      <ArrowUpRight size={15} />
                     </Link>
                   </td>
                 </tr>
               ))}
 
-              {!applications.length && (
+              {!apps.data?.length && (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-5 py-14 text-center"
-                  >
+                  <td colSpan={5} className="px-6 py-16 text-center">
                     <div className="mx-auto flex max-w-sm flex-col items-center">
-                      <div className="rounded-2xl bg-slate-100 p-4">
+                      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
                         <BriefcaseBusiness
                           size={22}
-                          className="text-slate-400"
+                          className="text-slate-600"
                         />
                       </div>
 
-                      <p className="mt-4 font-semibold text-slate-900">
+                      <p className="mt-4 font-semibold text-slate-300">
                         No applications yet
                       </p>
 
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-slate-600">
                         Start by adding a public job URL.
                       </p>
 
                       <Link
                         href="/applications/new"
-                        prefetch
-                        className="mt-4 text-xs font-bold text-slate-900 hover:underline"
+                        className="mt-4 text-xs font-bold text-blue-400 hover:text-blue-300"
                       >
                         Create your first application →
                       </Link>
@@ -312,7 +280,45 @@ export default async function Dashboard() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </section>
+
+      {/* Small footer insight */}
+      <div className="flex items-center gap-2 px-1 text-xs text-slate-600">
+        <TrendingUp size={13} />
+        Keep your applications updated to track your progress.
+      </div>
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    Draft:
+      "border-slate-400/10 bg-slate-400/5 text-slate-400",
+    "Job Extracted":
+      "border-blue-400/10 bg-blue-400/10 text-blue-400",
+    "Resume Ready":
+      "border-violet-400/10 bg-violet-400/10 text-violet-400",
+    Applied:
+      "border-cyan-400/10 bg-cyan-400/10 text-cyan-400",
+    Interview:
+      "border-amber-400/10 bg-amber-400/10 text-amber-400",
+    Rejected:
+      "border-red-400/10 bg-red-400/10 text-red-400",
+    Offer:
+      "border-emerald-400/10 bg-emerald-400/10 text-emerald-400",
+    Withdrawn:
+      "border-slate-400/10 bg-slate-400/5 text-slate-500",
+  };
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+        styles[status] ||
+        "border-slate-400/10 bg-slate-400/5 text-slate-400"
+      }`}
+    >
+      {status || "Draft"}
+    </span>
   );
 }
